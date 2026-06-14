@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard · Personas Atendidas</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0f1117;
+      --surface:   #1a1d27;
+      --border:    #2a2d3a;
+      --accent:    #5b8dee;
+      --accent2:   #3ecf8e;
+      --accent3:   #f5a623;
+      --text:      #e8eaf0;
+      --muted:     #7a7f96;
+      --radius:    12px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    header h1 span {
+      color: var(--accent);
+    }
+
+    .badge {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 0.3rem 0.9rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    /* ── Tarjetas de resumen ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.2rem 1.5rem;
+    }
+
+    .stat-card .label {
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 0.4rem;
+    }
+
+    .stat-card .value {
+      font-size: 2rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .stat-card.total  .value { color: var(--accent); }
+    .stat-card.ok     .value { color: var(--accent2); }
+    .stat-card.warn   .value { color: var(--accent3); }
+
+    /* ── Controles ── */
+    .controls {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 8px;
+      padding: 0.45rem 1.1rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all .2s;
+    }
+
+    .tab-btn.active, .tab-btn:hover {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .date-range {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .date-range input, .date-range select {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 0.4rem 0.8rem;
+      font-size: 0.83rem;
+    }
+
+    .btn-refresh {
+      background: var(--accent);
+      border: none;
+      color: #fff;
+      border-radius: 8px;
+      padding: 0.45rem 1.1rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: opacity .2s;
+    }
+    .btn-refresh:hover { opacity: .85; }
+
+    /* ── Gráfico ── */
+    .chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.2rem;
+    }
+
+    .chart-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .chart-subtitle {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 0.2rem;
+    }
+
+    canvas { width: 100% !important; }
+
+    /* ── Formulario rápido ── */
+    .form-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+    }
+
+    .form-card h2 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .field label {
+      display: block;
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-bottom: 0.3rem;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+
+    .field input, .field select {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 0.5rem 0.8rem;
+      font-size: 0.88rem;
+    }
+
+    .field input:focus, .field select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .btn-submit {
+      background: var(--accent2);
+      border: none;
+      color: #0f1117;
+      font-weight: 700;
+      border-radius: 8px;
+      padding: 0.6rem 1.4rem;
+      font-size: 0.88rem;
+      cursor: pointer;
+      transition: opacity .2s;
+    }
+    .btn-submit:hover { opacity: .85; }
+
+    .msg { font-size: 0.82rem; margin-top: 0.7rem; min-height: 1.2em; }
+    .msg.ok  { color: var(--accent2); }
+    .msg.err { color: #f56565; }
+
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Dashboard · <span>Personas Atendidas</span></h1>
+    <span class="badge" id="lastUpdate">Cargando...</span>
+  </header>
+
+  <!-- Tarjetas de resumen -->
+  <div class="stats-grid">
+    <div class="stat-card total">
+      <div class="label">Total atenciones</div>
+      <div class="value" id="statTotal">—</div>
+    </div>
+    <div class="stat-card ok">
+      <div class="label">Completadas</div>
+      <div class="value" id="statOk">—</div>
+    </div>
+    <div class="stat-card warn">
+      <div class="label">Pendientes</div>
+      <div class="value" id="statPend">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">En proceso</div>
+      <div class="value" id="statProc">—</div>
+    </div>
+  </div>
+
+  <!-- Controles del gráfico -->
+  <div class="controls">
+    <button class="tab-btn active" id="btnDiario" onclick="setModo('diario')">Por día</button>
+    <button class="tab-btn"        id="btnMensual" onclick="setModo('mensual')">Por mes</button>
+
+    <div class="date-range" id="rangeDiario">
+      <input type="date" id="desde" />
+      <span style="color:var(--muted)">→</span>
+      <input type="date" id="hasta" />
+    </div>
+
+    <div class="date-range" id="rangeMensual" style="display:none">
+      <select id="anio"></select>
+    </div>
+
+    <button class="btn-refresh" onclick="cargarGrafico()">↻ Actualizar</button>
+  </div>
+
+  <!-- Gráfico de barras -->
+  <div class="chart-card">
+    <div class="chart-header">
+      <div>
+        <div class="chart-title" id="chartTitle">Personas atendidas</div>
+        <div class="chart-subtitle" id="chartSubtitle"></div>
+      </div>
+      <div id="loadingSpinner" style="display:none"><span class="spinner"></span></div>
+    </div>
+    <canvas id="barChart" height="90"></canvas>
+  </div>
+
+  <!-- Formulario rápido para registrar -->
+  <div class="form-card">
+    <h2>+ Registrar nueva atención</h2>
+    <div class="form-grid">
+      <div class="field">
+        <label>Nombre de la persona</label>
+        <input type="text" id="fNombre" placeholder="Ej: Juan Pérez" />
+      </div>
+      <div class="field">
+        <label>Tipo de atención</label>
+        <select id="fTipo">
+          <option value="GENERAL">General</option>
+          <option value="MEDICA">Médica</option>
+          <option value="PSICOLOGICA">Psicológica</option>
+          <option value="SOCIAL">Social</option>
+          <option value="ADMINISTRATIVA">Administrativa</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Estado</label>
+        <select id="fEstado">
+          <option value="COMPLETADO">Completado</option>
+          <option value="PENDIENTE">Pendiente</option>
+          <option value="EN_PROCESO">En proceso</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Observaciones</label>
+        <input type="text" id="fObs" placeholder="Opcional..." />
+      </div>
+    </div>
+    <button class="btn-submit" onclick="registrar()">Registrar atención</button>
+    <div class="msg" id="formMsg"></div>
+  </div>
+
+<script>
+  // ── Configuración base ─────────────────────────────────────────────────────
+  const BASE = 'http://localhost:8080/api/atenciones';
+  let modo = 'diario';
+  let chart = null;
+
+  // ── Inicializar fechas y año ───────────────────────────────────────────────
+  function init() {
+    const hoy  = new Date();
+    const hace30 = new Date();
+    hace30.setDate(hoy.getDate() - 30);
+
+    document.getElementById('hasta').value = fmt(hoy);
+    document.getElementById('desde').value = fmt(hace30);
+
+    const sel = document.getElementById('anio');
+    for (let y = hoy.getFullYear(); y >= 2020; y--) {
+      const o = document.createElement('option');
+      o.value = y; o.textContent = y;
+      sel.appendChild(o);
+    }
+
+    cargarResumen();
+    cargarGrafico();
+  }
+
+  function fmt(d) {
+    return d.toISOString().split('T')[0];
+  }
+
+  // ── Cambiar modo diario / mensual ─────────────────────────────────────────
+  function setModo(m) {
+    modo = m;
+    document.getElementById('btnDiario').classList.toggle('active', m === 'diario');
+    document.getElementById('btnMensual').classList.toggle('active', m === 'mensual');
+    document.getElementById('rangeDiario').style.display  = m === 'diario'  ? 'flex' : 'none';
+    document.getElementById('rangeMensual').style.display = m === 'mensual' ? 'flex' : 'none';
+    cargarGrafico();
+  }
+
+  // ── Cargar tarjetas de resumen ─────────────────────────────────────────────
+  async function cargarResumen() {
+    try {
+      const r = await fetch(`${BASE}/resumen`);
+      const d = await r.json();
+      document.getElementById('statTotal').textContent = d.totalAtenciones ?? '—';
+      document.getElementById('statOk').textContent    = d.completadas     ?? '—';
+      document.getElementById('statPend').textContent  = d.pendientes      ?? '—';
+      document.getElementById('statProc').textContent  = d.enProceso       ?? '—';
+    } catch (e) {
+      console.warn('No se pudo cargar el resumen:', e);
+    }
+  }
+
+  // ── Cargar gráfico ─────────────────────────────────────────────────────────
+  async function cargarGrafico() {
+    document.getElementById('loadingSpinner').style.display = 'block';
+    try {
+      let url;
+      if (modo === 'diario') {
+        const desde = document.getElementById('desde').value;
+        const hasta = document.getElementById('hasta').value;
+        url = `${BASE}/grafico/diario?desde=${desde}&hasta=${hasta}`;
+      } else {
+        const anio = document.getElementById('anio').value;
+        url = `${BASE}/grafico/mensual?anio=${anio}`;
+      }
+
+      const r = await fetch(url);
+      const data = await r.json();
+
+      renderChart(data);
+
+      document.getElementById('chartTitle').textContent    = data.titulo || 'Personas atendidas';
+      document.getElementById('chartSubtitle').textContent = `Total en período: ${data.totalAtenciones ?? 0} personas`;
+      document.getElementById('lastUpdate').textContent    = 'Actualizado: ' + new Date().toLocaleTimeString('es-CL');
+
+    } catch (e) {
+      document.getElementById('chartSubtitle').textContent = '⚠ No se pudo conectar con el servidor. Verifique que el servicio esté corriendo.';
+      console.error(e);
+    } finally {
+      document.getElementById('loadingSpinner').style.display = 'none';
+    }
+  }
+
+  // ── Renderizar gráfico con Chart.js ───────────────────────────────────────
+  function renderChart(data) {
+    const ctx = document.getElementById('barChart').getContext('2d');
+
+    if (chart) chart.destroy();
+
+    chart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: data.etiquetas,
+        datasets: [{
+          label: 'Personas atendidas',
+          data: data.valores,
+          backgroundColor: 'rgba(91, 141, 238, 0.75)',
+          borderColor:     'rgba(91, 141, 238, 1)',
+          borderWidth: 1,
+          borderRadius: 6,
+          hoverBackgroundColor: 'rgba(62, 207, 142, 0.85)',
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: {
+            labels: { color: '#7a7f96', font: { size: 12 } }
+          },
+          tooltip: {
+            backgroundColor: '#1a1d27',
+            titleColor: '#e8eaf0',
+            bodyColor: '#7a7f96',
+            borderColor: '#2a2d3a',
+            borderWidth: 1,
+            callbacks: {
+              label: ctx => ` ${ctx.parsed.y} persona${ctx.parsed.y !== 1 ? 's' : ''}`
+            }
+          }
+        },
+        scales: {
+          x: {
+            ticks: { color: '#7a7f96', font: { size: 11 } },
+            grid: { color: 'rgba(42,45,58,0.6)' }
+          },
+          y: {
+            beginAtZero: true,
+            ticks: {
+              color: '#7a7f96',
+              font: { size: 11 },
+              precision: 0
+            },
+            grid: { color: 'rgba(42,45,58,0.6)' }
+          }
+        }
+      }
+    });
+  }
+
+  // ── Registrar atención ─────────────────────────────────────────────────────
+  async function registrar() {
+    const nombre = document.getElementById('fNombre').value.trim();
+    const msg    = document.getElementById('formMsg');
+
+    if (!nombre) {
+      msg.textContent = 'El nombre es obligatorio.';
+      msg.className = 'msg err';
+      return;
+    }
+
+    const body = {
+      nombrePersona: nombre,
+      tipoAtencion:  document.getElementById('fTipo').value,
+      estado:        document.getElementById('fEstado').value,
+      observaciones: document.getElementById('fObs').value.trim() || null
+    };
+
+    try {
+      const r = await fetch(BASE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      if (r.ok) {
+        msg.textContent = '✓ Atención registrada correctamente.';
+        msg.className = 'msg ok';
+        document.getElementById('fNombre').value = '';
+        document.getElementById('fObs').value = '';
+        cargarResumen();
+        cargarGrafico();
+      } else {
+        const err = await r.json();
+        msg.textContent = JSON.stringify(err.errores || err.mensaje || 'Error desconocido');
+        msg.className = 'msg err';
+      }
+    } catch (e) {
+      msg.textContent = '⚠ Sin conexión con el servidor.';
+      msg.className = 'msg err';
+    }
+  }
+
+  init();
+</script>
+</body>
+</html>
